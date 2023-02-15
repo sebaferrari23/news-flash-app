@@ -8,7 +8,7 @@ import {
 } from 'urql';
 import { NavigationContainer } from '@react-navigation/native';
 import { RootNavigator } from './screens/Root.navigator';
-import { cacheExchange } from '@urql/exchange-graphcache';
+import { offlineExchange } from '@urql/exchange-graphcache';
 import schema from './graphql/graphql.schema.json';
 import {
   AddBookmarkMutation,
@@ -21,13 +21,23 @@ import {
   RemoveBookmarkMutationVariables,
 } from './graphql/__generated__/operationTypes';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { AppOfflinePage } from './components/AppOfflinePage';
+//import { AppOfflinePage } from './components/AppOfflinePage';
+import { AppOfflineMessage } from './components/AppOfflineMessage';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { makeAsyncStorage } from '@urql/storage-rn';
+
+const storage = makeAsyncStorage({
+  dataKey: 'my-app-data',
+  metadataKey: 'my-app-metadata',
+  maxAge: 5,
+});
 
 const client = createClient({
   url: 'http://localhost:3000/graphql',
   exchanges: [
     dedupExchange,
-    cacheExchange({
+    offlineExchange({
+      storage,
       schema: schema as any,
       resolvers: {
         Query: {
@@ -95,16 +105,19 @@ const client = createClient({
 export const App: React.FC = () => {
   const { isConnected } = useNetInfo();
 
-  if (!isConnected) {
-    return <AppOfflinePage />;
-  }
+  // if (!isConnected) {
+  //   return <AppOfflinePage />;
+  // }
 
   return (
-    <UrqlProvider value={client}>
-      <NavigationContainer>
-        <StatusBar hidden />
-        <RootNavigator />
-      </NavigationContainer>
-    </UrqlProvider>
+    <SafeAreaProvider>
+      <UrqlProvider value={client}>
+        <NavigationContainer>
+          <StatusBar hidden />
+          <RootNavigator />
+        </NavigationContainer>
+        {isConnected === false ? <AppOfflineMessage /> : null}
+      </UrqlProvider>
+    </SafeAreaProvider>
   );
 };
