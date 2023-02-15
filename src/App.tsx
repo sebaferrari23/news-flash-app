@@ -5,6 +5,8 @@ import {
   Provider as UrqlProvider,
   dedupExchange,
   fetchExchange,
+  Exchange,
+  makeErrorResult,
 } from 'urql';
 import { NavigationContainer } from '@react-navigation/native';
 import { RootNavigator } from './screens/Root.navigator';
@@ -20,11 +22,50 @@ import {
   RemoveBookmarkMutation,
   RemoveBookmarkMutationVariables,
 } from './graphql/__generated__/operationTypes';
-import { useNetInfo } from '@react-native-community/netinfo';
+import NetInfo, { useNetInfo } from '@react-native-community/netinfo';
 //import { AppOfflinePage } from './components/AppOfflinePage';
 import { AppOfflineMessage } from './components/AppOfflineMessage';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { makeAsyncStorage } from '@urql/storage-rn';
+import { share, pipe, filter, map, merge } from 'wonka';
+
+let disconnect: any;
+
+const offlineMutationExchange: () => Exchange = () => {
+  let connected = true;
+
+  if (disconnect) {
+    disconnect();
+    disconnect = undefined;
+  }
+
+  disconnect = NetInfo.addEventListener(state => {
+    connected = state.isConnected === true;
+  });
+
+  return ({ forward }) => {
+    return ops$ => {
+      const shared = pipe(ops$, share);
+
+      // mutations when is offline
+      const offlineMutations = pipe(
+        shared,
+        filter(op => op.kind === 'mutation' && !connected),
+        map(op => makeErrorResult(op, new Error('You are offline!'))),
+      );
+
+      // everything else
+      const rest = pipe(
+        shared,
+        filter(
+          op => op.kind !== 'mutation' || (op.kind === 'mutation' && connected),
+        ),
+      );
+
+      return merge([forward(rest), offlineMutations]);
+    };
+  };
+};
 
 const storage = makeAsyncStorage({
   dataKey: 'my-app-data',
@@ -98,6 +139,7 @@ const client = createClient({
         },
       },
     }),
+    offlineMutationExchange(),
     fetchExchange,
   ],
 });
