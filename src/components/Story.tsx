@@ -1,16 +1,43 @@
 import * as React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { StorySummaryFieldsFragment } from '../graphql/__generated__/operationTypes';
+import {
+  StorySummaryFieldsFragment,
+  AddBookmarkMutation,
+  AddBookmarkMutationVariables,
+} from '../graphql/__generated__/operationTypes';
+import { gql, useMutation } from 'urql';
+
+const ADD_BOOKMARK_MUTATION = gql`
+  mutation AddBookmark($storyId: ID!) {
+    addBookmark(storyId: $storyId) {
+      id
+      story {
+        id
+        title
+        bookmarkId
+      }
+    }
+  }
+`;
 
 export const Story: React.FC<{ item: StorySummaryFieldsFragment }> = ({
   item,
 }) => {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
+  const [{ fetching: isAddingBookmark }, addBookmark] = useMutation<
+    AddBookmarkMutation,
+    AddBookmarkMutationVariables
+  >(ADD_BOOKMARK_MUTATION);
   return (
     <Pressable
       onPress={() =>
@@ -19,7 +46,17 @@ export const Story: React.FC<{ item: StorySummaryFieldsFragment }> = ({
           title: item.title,
         })
       }>
-      <Text style={styles.title}>{item.title}</Text>
+      <View style={styles.row}>
+        <Text style={styles.title}>
+          {item.title} {item.bookmarkId ? '🔖' : ''}
+        </Text>
+        {!item.bookmarkId && !isAddingBookmark ? (
+          <Pressable onPress={() => addBookmark({ storyId: item.id })}>
+            <Text>Add Bookmark</Text>
+          </Pressable>
+        ) : null}
+        {isAddingBookmark ? <ActivityIndicator /> : null}
+      </View>
       <Text style={styles.summary}>{item.summary}</Text>
     </Pressable>
   );
@@ -31,10 +68,15 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     textTransform: 'uppercase',
     letterSpacing: 2,
-    marginBottom: 10,
   },
   summary: {
     fontSize: 18,
     color: 'grey',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
 });
