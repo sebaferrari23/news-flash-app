@@ -14,7 +14,7 @@ import {
   AllBookmarksQueryVariables,
 } from '../graphql/__generated__/operationTypes';
 
-const BOOKMARKS_QUERY = gql`
+export const BOOKMARKS_QUERY = gql`
   query AllBookmarks {
     bookmarks {
       id
