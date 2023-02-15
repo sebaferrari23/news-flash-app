@@ -20,6 +20,8 @@ import {
   RemoveBookmarkMutation,
   RemoveBookmarkMutationVariables,
 } from './graphql/__generated__/operationTypes';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { AppOfflinePage } from './components/AppOfflinePage';
 
 const client = createClient({
   url: 'http://localhost:3000/graphql',
@@ -91,6 +93,12 @@ const client = createClient({
 });
 
 export const App: React.FC = () => {
+  const { isConnected } = useNetInfo();
+
+  if (!isConnected) {
+    return <AppOfflinePage />;
+  }
+
   return (
     <UrqlProvider value={client}>
       <NavigationContainer>
